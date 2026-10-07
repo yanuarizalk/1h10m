@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="orbit-grad-512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <radialGradient id="bg-grad-512" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg-grad-512)" />
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#orbit-grad-512)" stroke-width="8" stroke-dasharray="24 16" opacity="0.6"/>
+  <ellipse cx="256" cy="256" rx="190" ry="86" fill="none" stroke="#38bdf8" stroke-width="6" transform="rotate(-30 256 256)" opacity="0.8"/>
+  <ellipse cx="256" cy="256" rx="190" ry="86" fill="none" stroke="#10b981" stroke-width="6" transform="rotate(30 256 256)" opacity="0.8"/>
+  <circle cx="256" cy="256" r="70" fill="url(#orbit-grad-512)" />
+  <circle cx="256" cy="256" r="38" fill="#090d16" />
+  <circle cx="256" cy="256" r="16" fill="#38bdf8" />
+  <!-- Nodes on orbit -->
+  <circle cx="400" cy="170" r="14" fill="#10b981" />
+  <circle cx="110" cy="340" r="12" fill="#38bdf8" />
+  <circle cx="340" cy="370" r="10" fill="#a855f7" />
+</svg>
