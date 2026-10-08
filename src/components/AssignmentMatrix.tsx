@@ -22,7 +22,8 @@ import {
   Bookmark,
   ChevronLeft,
   ChevronRight,
-  CalendarDays
+  CalendarDays,
+  GripVertical
 } from 'lucide-react';
 
 interface AssignmentMatrixProps {
@@ -51,6 +52,53 @@ export const AssignmentMatrix: React.FC<AssignmentMatrixProps> = ({
   // Calendar View state
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date>(() => new Date());
+
+  // Kanban Drag and Drop state
+  const [draggedAssignmentId, setDraggedAssignmentId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<AssignmentStatus | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedAssignmentId(id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAssignmentId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOverColumn = (e: React.DragEvent, status: AssignmentStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== status) {
+      setDragOverColumn(status);
+    }
+  };
+
+  const handleDragLeaveColumn = (e: React.DragEvent, status: AssignmentStatus) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    if (dragOverColumn === status) {
+      setDragOverColumn(null);
+    }
+  };
+
+  const handleDropOnColumn = (e: React.DragEvent, targetStatus: AssignmentStatus) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain') || draggedAssignmentId;
+    if (id) {
+      onUpdateAssignmentStatus(id, targetStatus);
+      const label = targetStatus === 'pending' 
+        ? 'Pending' 
+        : targetStatus === 'in_progress' 
+        ? 'Sedang Dikerjakan' 
+        : 'Selesai Disubmit';
+      setCopyFeedback(`Status tugas diubah ke "${label}"`);
+      setTimeout(() => setCopyFeedback(null), 2000);
+    }
+    setDraggedAssignmentId(null);
+    setDragOverColumn(null);
+  };
 
   // New assignment form state
   const [newTitle, setNewTitle] = useState('');
@@ -457,47 +505,114 @@ export const AssignmentMatrix: React.FC<AssignmentMatrixProps> = ({
 
       {/* Board View: Kanban, List, or Calendar */}
       {viewMode === 'kanban' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Column 1: Pending */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                Pending ({assignments.filter(a => a.status === 'pending').length})
+        <div className="space-y-3">
+          {/* Helpful Drag & Drop Hint */}
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-800/70 text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="text-blue-500 font-bold">⠿ Drag &amp; Drop:</span>
+              Tarik kartu tugas ke kolom lain untuk mengubah status pengerjaan secara instan.
+            </span>
+            {draggedAssignmentId && (
+              <span className="font-semibold text-blue-600 dark:text-blue-400 animate-pulse">
+                Lepas di kolom tujuan...
               </span>
-            </div>
-            <div className="space-y-3">
-              {assignments.filter(a => a.status === 'pending').map(a => renderAssignmentCard(a))}
-            </div>
+            )}
           </div>
 
-          {/* Column 2: In Progress */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                Sedang Dikerjakan ({assignments.filter(a => a.status === 'in_progress').length})
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Column 1: Pending */}
+            <div 
+              onDragOver={(e) => handleDragOverColumn(e, 'pending')}
+              onDragLeave={(e) => handleDragLeaveColumn(e, 'pending')}
+              onDrop={(e) => handleDropOnColumn(e, 'pending')}
+              className={`space-y-3 p-3 rounded-2xl transition-all duration-200 ${
+                dragOverColumn === 'pending' 
+                  ? 'bg-amber-500/10 ring-2 ring-amber-500/50 border-2 border-dashed border-amber-500/60 shadow-lg' 
+                  : 'bg-transparent border border-transparent'
+              }`}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  Pending ({assignments.filter(a => a.status === 'pending').length})
+                </span>
+                <span className={`text-[10px] font-mono transition-opacity ${dragOverColumn === 'pending' ? 'text-amber-500 font-bold' : 'text-slate-400 opacity-60'}`}>
+                  {dragOverColumn === 'pending' ? '✦ Drop Here' : 'Drop zone'}
+                </span>
+              </div>
+              <div className="space-y-3 min-h-[160px]">
+                {assignments.filter(a => a.status === 'pending').map(a => renderAssignmentCard(a))}
+                {assignments.filter(a => a.status === 'pending').length === 0 && (
+                  <div className="h-32 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 text-xs text-center p-3">
+                    <p className="font-medium">Tidak ada tugas pending</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Tarik kartu tugas ke sini</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="space-y-3">
-              {assignments.filter(a => a.status === 'in_progress').map(a => renderAssignmentCard(a))}
+
+            {/* Column 2: In Progress / On Work */}
+            <div 
+              onDragOver={(e) => handleDragOverColumn(e, 'in_progress')}
+              onDragLeave={(e) => handleDragLeaveColumn(e, 'in_progress')}
+              onDrop={(e) => handleDropOnColumn(e, 'in_progress')}
+              className={`space-y-3 p-3 rounded-2xl transition-all duration-200 ${
+                dragOverColumn === 'in_progress' 
+                  ? 'bg-blue-500/10 ring-2 ring-blue-500/50 border-2 border-dashed border-blue-500/60 shadow-lg' 
+                  : 'bg-transparent border border-transparent'
+              }`}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  Sedang Dikerjakan ({assignments.filter(a => a.status === 'in_progress').length})
+                </span>
+                <span className={`text-[10px] font-mono transition-opacity ${dragOverColumn === 'in_progress' ? 'text-blue-500 font-bold' : 'text-slate-400 opacity-60'}`}>
+                  {dragOverColumn === 'in_progress' ? '✦ Drop Here' : 'Drop zone'}
+                </span>
+              </div>
+              <div className="space-y-3 min-h-[160px]">
+                {assignments.filter(a => a.status === 'in_progress').map(a => renderAssignmentCard(a))}
+                {assignments.filter(a => a.status === 'in_progress').length === 0 && (
+                  <div className="h-32 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 text-xs text-center p-3">
+                    <p className="font-medium">Belum ada tugas dikerjakan</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Tarik kartu tugas ke sini</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Column 3: Completed */}
+            <div 
+              onDragOver={(e) => handleDragOverColumn(e, 'completed')}
+              onDragLeave={(e) => handleDragLeaveColumn(e, 'completed')}
+              onDrop={(e) => handleDropOnColumn(e, 'completed')}
+              className={`space-y-3 p-3 rounded-2xl transition-all duration-200 ${
+                dragOverColumn === 'completed' 
+                  ? 'bg-emerald-500/10 ring-2 ring-emerald-500/50 border-2 border-dashed border-emerald-500/60 shadow-lg' 
+                  : 'bg-transparent border border-transparent'
+              }`}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  Selesai Disubmit ({assignments.filter(a => a.status === 'completed').length})
+                </span>
+                <span className={`text-[10px] font-mono transition-opacity ${dragOverColumn === 'completed' ? 'text-emerald-500 font-bold' : 'text-slate-400 opacity-60'}`}>
+                  {dragOverColumn === 'completed' ? '✦ Drop Here' : 'Drop zone'}
+                </span>
+              </div>
+              <div className="space-y-3 min-h-[160px]">
+                {assignments.filter(a => a.status === 'completed').map(a => renderAssignmentCard(a))}
+                {assignments.filter(a => a.status === 'completed').length === 0 && (
+                  <div className="h-32 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-slate-400 text-xs text-center p-3">
+                    <p className="font-medium">Belum ada tugas selesai</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Tarik kartu tugas ke sini</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Column 3: Completed */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                Selesai Disubmit ({assignments.filter(a => a.status === 'completed').length})
-              </span>
-            </div>
-            <div className="space-y-3">
-              {assignments.filter(a => a.status === 'completed').map(a => renderAssignmentCard(a))}
-            </div>
-          </div>
-
         </div>
       ) : viewMode === 'list' ? (
         /* List View */
@@ -1238,16 +1353,30 @@ export const AssignmentMatrix: React.FC<AssignmentMatrixProps> = ({
   // Render individual card in Kanban column
   function renderAssignmentCard(assignment: Assignment) {
     const urgency = getUrgency(assignment.dueDate, assignment.status);
+    const isBeingDragged = draggedAssignmentId === assignment.id;
 
     return (
       <div 
         key={assignment.id} 
-        className={`glass-card p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 transition-all duration-200 ${
-          urgency.isPulse ? 'ring-1 ring-rose-500/50 shadow-md' : ''
+        draggable={true}
+        onDragStart={(e) => handleDragStart(e, assignment.id)}
+        onDragEnd={handleDragEnd}
+        className={`glass-card p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 transition-all duration-200 cursor-grab active:cursor-grabbing hover:border-slate-300 dark:hover:border-slate-700 select-none ${
+          isBeingDragged 
+            ? 'opacity-40 scale-[0.98] border-dashed border-blue-500 ring-2 ring-blue-500/40 shadow-none' 
+            : 'shadow-sm hover:shadow-md'
+        } ${
+          urgency.isPulse && !isBeingDragged ? 'ring-1 ring-rose-500/50 shadow-md' : ''
         }`}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5">
+            <span 
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 -ml-1 cursor-grab active:cursor-grabbing" 
+              title="Tarik kartu untuk memindahkan status"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </span>
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
               {assignment.courseCode}
             </span>
