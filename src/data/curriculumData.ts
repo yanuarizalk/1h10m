@@ -1,4 +1,4 @@
-import type { Course, Assignment, GroupDeliverable } from '../types';
+import type { Course, Assignment, GroupDeliverable, CurriculumPreset } from '../types';
 
 export const INITIAL_COURSES: Course[] = [
   // Semester 1 (18 SKS)
@@ -739,3 +739,25 @@ export const GRADE_POINT_MAP: Record<string, number> = {
   'D': 1.0,
   'E': 0.0,
 };
+
+export const DEFAULT_CURRICULUM_PRESETS: CurriculumPreset[] = [
+  {
+    id: 'preset-unsia-si-default',
+    name: 'S1 Sistem Informasi (UNSIA 2026)',
+    description: 'Kurikulum Standar PJJ Program Studi Sistem Informasi (S1) - Universitas Siber Asia (144 SKS)',
+    targetSks: 144,
+    courses: INITIAL_COURSES,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-10-08T00:00:00.000Z',
+  },
+  {
+    id: 'preset-unsia-fast-track',
+    name: 'S1 Sistem Informasi - Fast Track (Akselerasi)',
+    description: 'Kurikulum Akselerasi 7 Semester dengan konsentrasi Enterprise Architecture & Big Data',
+    targetSks: 144,
+    courses: INITIAL_COURSES.map(c => c.semester >= 7 ? { ...c, semester: c.semester === 8 ? 7 : c.semester } : c),
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-10-08T00:00:00.000Z',
+  }
+];
+

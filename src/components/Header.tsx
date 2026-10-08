@@ -1,4 +1,6 @@
 import React from 'react';
+import type { CurriculumPreset } from '../types';
+import { ConfigurationMenu } from './ConfigurationMenu';
 import { 
   Compass, 
   Moon, 
@@ -22,6 +24,12 @@ interface HeaderProps {
   passedSks: number;
   totalTargetSks: number;
   gpa: number;
+  presets: CurriculumPreset[];
+  activePresetId: string;
+  onSwitchPreset: (presetId: string) => void;
+  onOpenManageModal: (initialTab?: 'presets' | 'courses') => void;
+  onImportPreset: (preset: CurriculumPreset) => void;
+  onExportPreset: (preset: CurriculumPreset) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,6 +42,12 @@ export const Header: React.FC<HeaderProps> = ({
   passedSks,
   totalTargetSks,
   gpa,
+  presets,
+  activePresetId,
+  onSwitchPreset,
+  onOpenManageModal,
+  onImportPreset,
+  onExportPreset,
 }) => {
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
 
@@ -156,6 +170,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">Install App</span>
               </button>
             )}
+
+            {/* Configuration (Cog Icon) Menu beside left of dark/light mode */}
+            <ConfigurationMenu
+              presets={presets}
+              activePresetId={activePresetId}
+              onSwitchPreset={onSwitchPreset}
+              onOpenManageModal={onOpenManageModal}
+              onImportPreset={onImportPreset}
+              onExportPreset={onExportPreset}
+            />
 
             {/* Dark / Light Mode Switch */}
             <button

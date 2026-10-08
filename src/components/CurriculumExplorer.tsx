@@ -20,6 +20,8 @@ interface CurriculumExplorerProps {
   courses: Course[];
   onUpdateCourseStatus: (courseId: string, status: CourseStatus, grade?: CourseGrade) => void;
   onResetCurriculum: () => void;
+  curriculumName?: string;
+  targetSks?: number;
 }
 
 const CATEGORY_COLORS: Record<CourseCategory, { bg: string; text: string; border: string }> = {
@@ -38,6 +40,8 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
   courses,
   onUpdateCourseStatus,
   onResetCurriculum,
+  curriculumName,
+  targetSks = 144,
 }) => {
   const [selectedSemester, setSelectedSemester] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +100,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
     let plannedSks = 0;
     let totalGradePoints = 0;
     let gradedSks = 0;
-    const targetSks = 144;
+    const finalTargetSks = targetSks || 144;
 
     courses.forEach(c => {
       if (c.status === 'completed') {
@@ -110,16 +114,16 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
     });
 
     const gpa = gradedSks > 0 ? totalGradePoints / gradedSks : 0.0;
-    const percentage = Math.min(100, Math.round((passedSks / targetSks) * 100));
+    const percentage = Math.min(100, Math.round((passedSks / finalTargetSks) * 100));
 
     return {
       passedSks,
       plannedSks,
-      targetSks,
+      targetSks: finalTargetSks,
       gpa,
       percentage,
     };
-  }, [courses]);
+  }, [courses, targetSks]);
 
   // Trigger celebration confetti when 144 SKS is reached
   React.useEffect(() => {
@@ -220,6 +224,24 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
           >
             Tutup
           </button>
+        </div>
+      )}
+
+      {/* Active Curriculum Banner */}
+      {curriculumName && (
+        <div className="glass-card px-4 py-2.5 rounded-2xl flex items-center justify-between gap-3 text-xs border border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-medium text-slate-600 dark:text-slate-400">
+              Kurikulum Aktif:
+            </span>
+            <span className="font-bold text-slate-900 dark:text-white">
+              {curriculumName}
+            </span>
+          </div>
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+            Target {stats.targetSks} SKS
+          </span>
         </div>
       )}
 

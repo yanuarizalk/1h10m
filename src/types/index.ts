@@ -28,6 +28,16 @@ export interface Course {
   grade?: CourseGrade;
 }
 
+export interface CurriculumPreset {
+  id: string;
+  name: string;
+  description?: string;
+  targetSks?: number;
+  courses: Course[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type AssignmentPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type AssignmentStatus = 'pending' | 'in_progress' | 'completed';
 
