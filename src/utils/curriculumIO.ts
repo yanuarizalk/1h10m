@@ -44,6 +44,9 @@ function normalizeCourses(rawList: unknown[]): Course[] {
       lecturerTip: typeof c.lecturerTip === 'string' && c.lecturerTip ? c.lecturerTip : undefined,
       status: (c.status === 'completed' || c.status === 'planned' || c.status === 'not_taken') ? c.status : 'not_taken',
       grade: typeof c.grade === 'string' ? (c.grade as Course['grade']) : undefined,
+      score: typeof c.score === 'number' && !isNaN(c.score)
+        ? (c.score > 4 ? Math.round((c.score / 25) * 100) / 100 : c.score)
+        : undefined,
     };
   });
 }

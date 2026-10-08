@@ -26,6 +26,14 @@ export interface Course {
   lecturerTip?: string;
   status: CourseStatus;
   grade?: CourseGrade;
+  score?: number; // Numeric grade score (0–100)
+}
+
+export interface GradeThreshold {
+  grade: CourseGrade;
+  minScore: number;
+  point: number;
+  description?: string;
 }
 
 export interface CurriculumPreset {

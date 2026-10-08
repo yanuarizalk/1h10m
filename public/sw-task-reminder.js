@@ -14,13 +14,13 @@ const notifiedTaskIds = new Set();
 // Map of taskId -> { timerId, dueTime, resolvePromise }
 const activeTimers = new Map();
 
-// Immediate activation
+// Install event: Do NOT skip waiting automatically. Wait for user consent.
 self.addEventListener('install', () => {
-  self.skipWaiting();
+  console.log('[SIA-Orbit SW] New service worker installed. Waiting for user activation.');
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  console.log('[SIA-Orbit SW] Service worker activated.');
 });
 
 /**
@@ -401,6 +401,13 @@ self.addEventListener('push', (event) => {
 // Listen for messages from client tabs
 self.addEventListener('message', (event) => {
   if (!event.data) return;
+
+  // Handle user-consented update activation
+  if (event.data.type === 'SKIP_WAITING') {
+    console.log('[SIA-Orbit SW] User consented to update. Skipping waiting.');
+    self.skipWaiting();
+    return;
+  }
 
   // Sync tasks and configuration from tab
   if (event.data.type === 'SYNC_TASK_REMINDERS') {

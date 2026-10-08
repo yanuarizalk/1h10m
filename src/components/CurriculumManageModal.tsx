@@ -284,6 +284,9 @@ export const CurriculumManageModal: React.FC<CurriculumManageModalProps> = ({
         lecturerTip: courseFormTip.trim() || undefined,
         status: existing ? existing.status : 'not_taken',
         grade: existing ? existing.grade : undefined,
+        score: existing?.score !== undefined 
+          ? (existing.score > 4 ? Math.round((existing.score / 25) * 100) / 100 : existing.score)
+          : undefined,
       };
       onUpdateCourse(updatedCourse);
       showToast(`Mata kuliah "${updatedCourse.code}" diperbarui`);
