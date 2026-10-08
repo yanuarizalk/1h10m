@@ -36,8 +36,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: false, // Managed manually via prompt and SKIP_WAITING
+        clientsClaim: false,
+        skipWaiting: false,
+        importScripts: ['/sw-task-reminder.js'],
         runtimeCaching: [
           {
             // Cache Google Fonts & Web Fonts (Cache-First)

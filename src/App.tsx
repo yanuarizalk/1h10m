@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Course, Assignment, GroupDeliverable, CourseGrade, CourseStatus, AssignmentStatus, CacheDiagnostics, CurriculumPreset } from './types';
+import type { 
+  Course, 
+  Assignment, 
+  GroupDeliverable, 
+  CourseGrade, 
+  CourseStatus, 
+  AssignmentStatus, 
+  CacheDiagnostics, 
+  CurriculumPreset,
+  TaskNotificationConfig,
+  GradeThreshold
+} from './types';
 import { INITIAL_COURSES, INITIAL_ASSIGNMENTS, INITIAL_GROUP_DELIVERABLES, GRADE_POINT_MAP, DEFAULT_CURRICULUM_PRESETS } from './data/curriculumData';
 import { Header } from './components/Header';
 import { CurriculumExplorer } from './components/CurriculumExplorer';
@@ -9,6 +20,17 @@ import { SystemDiagnosticsModal } from './components/SystemDiagnosticsModal';
 import { CurriculumManageModal } from './components/CurriculumManageModal';
 import { ImportConflictModal } from './components/ImportConflictModal';
 import { downloadCurriculumJson } from './utils/curriculumIO';
+import { 
+  getTaskNotificationConfig, 
+  saveTaskNotificationConfig, 
+  checkDueTasksAndNotify,
+  syncTasksWithServiceWorkerSync 
+} from './utils/taskNotificationService';
+import { 
+  loadGradeThresholds, 
+  saveGradeThresholds, 
+  calculateGradeFromScore 
+} from './utils/gradeThresholdService';
 import { getCacheDiagnostics, applyUpdateAndReload } from './serviceWorkerRegistration';
 import { WifiOff, ShieldCheck } from 'lucide-react';
 
@@ -114,6 +136,55 @@ export const App: React.FC = () => {
     return INITIAL_GROUP_DELIVERABLES;
   });
 
+  // Task Notification configuration state with LocalStorage persistence
+  const [notificationConfig, setNotificationConfig] = useState<TaskNotificationConfig>(() => {
+    return getTaskNotificationConfig();
+  });
+
+  const handleUpdateNotificationConfig = (newConfig: TaskNotificationConfig) => {
+    setNotificationConfig(newConfig);
+    saveTaskNotificationConfig(newConfig);
+  };
+
+  // Grade Thresholds state with LocalStorage persistence
+  const [gradeThresholds, setGradeThresholds] = useState<GradeThreshold[]>(() => {
+    return loadGradeThresholds();
+  });
+
+  const handleUpdateGradeThresholds = (newThresholds: GradeThreshold[]) => {
+    setGradeThresholds(newThresholds);
+    saveGradeThresholds(newThresholds);
+  };
+
+  // Background Service: Automatically inspect due tasks and trigger OS notifications
+  useEffect(() => {
+    // Run initial inspection and sync to Service Worker
+    checkDueTasksAndNotify(assignments, notificationConfig, () => {
+      setActiveTab('assignments');
+    });
+
+    // Run background interval check every 30 seconds
+    const intervalId = window.setInterval(() => {
+      checkDueTasksAndNotify(assignments, notificationConfig, () => {
+        setActiveTab('assignments');
+      });
+    }, 30000);
+
+    // Sync to Service Worker when tab is about to be closed or hidden (synchronous postMessage)
+    const handleSyncOnClose = () => {
+      syncTasksWithServiceWorkerSync(assignments, notificationConfig);
+    };
+
+    window.addEventListener('beforeunload', handleSyncOnClose);
+    window.addEventListener('pagehide', handleSyncOnClose);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleSyncOnClose);
+      window.removeEventListener('pagehide', handleSyncOnClose);
+    };
+  }, [assignments, notificationConfig]);
+
   // Sync theme to <html> tag
   useEffect(() => {
     if (isDarkMode) {
@@ -187,7 +258,12 @@ export const App: React.FC = () => {
   };
 
   // Persist course status update to active preset
-  const handleUpdateCourseStatus = (courseId: string, status: CourseStatus, grade?: CourseGrade) => {
+  const handleUpdateCourseStatus = (
+    courseId: string, 
+    status: CourseStatus, 
+    grade?: CourseGrade, 
+    score?: number
+  ) => {
     const updatedPresets = presets.map((p) => {
       if (p.id === activePreset.id) {
         const updatedCourses = p.courses.map((c) => {
@@ -196,6 +272,7 @@ export const App: React.FC = () => {
               ...c,
               status,
               grade: status === 'completed' ? (grade || c.grade || 'A') : undefined,
+              score: status === 'completed' ? (score !== undefined ? score : c.score) : undefined,
             };
           }
           return c;
@@ -442,7 +519,12 @@ export const App: React.FC = () => {
     courses.forEach((c) => {
       if (c.status === 'completed') {
         passedSks += c.sks;
-        const pts = c.grade ? GRADE_POINT_MAP[c.grade] ?? 4.0 : 4.0;
+        let pts = 4.0;
+        if (c.score !== undefined) {
+          pts = calculateGradeFromScore(c.score, gradeThresholds).point;
+        } else if (c.grade) {
+          pts = GRADE_POINT_MAP[c.grade] ?? 4.0;
+        }
         totalGradePoints += pts * c.sks;
         gradedSks += c.sks;
       }
@@ -450,7 +532,7 @@ export const App: React.FC = () => {
 
     const gpa = gradedSks > 0 ? totalGradePoints / gradedSks : 0.0;
     return { passedSks, totalTargetSks: activePreset.targetSks || 144, gpa };
-  }, [courses, activePreset]);
+  }, [courses, activePreset, gradeThresholds]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 selection:bg-emerald-500 selection:text-white">
@@ -500,6 +582,10 @@ export const App: React.FC = () => {
         }}
         onImportPreset={handleImportCurriculum}
         onExportPreset={handleExportCurriculum}
+        notificationConfig={notificationConfig}
+        onUpdateNotificationConfig={handleUpdateNotificationConfig}
+        gradeThresholds={gradeThresholds}
+        onUpdateGradeThresholds={handleUpdateGradeThresholds}
       />
 
       {/* App Body Content */}
@@ -511,6 +597,7 @@ export const App: React.FC = () => {
             onResetCurriculum={handleResetCurriculum}
             curriculumName={activePreset.name}
             targetSks={activePreset.targetSks || 144}
+            gradeThresholds={gradeThresholds}
           />
         ) : (
           <AssignmentMatrix

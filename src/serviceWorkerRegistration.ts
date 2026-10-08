@@ -74,27 +74,45 @@ export function registerServiceWorker(callbacks: SWRegistrationCallbacks = {}) {
     }
   });
 
-  // Reload page once new service worker takes control
+  // Reload page ONLY once user explicitly consents and new service worker takes control
+  let userConsentedReload = false;
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
+    if (userConsentedReload && !refreshing) {
       refreshing = true;
       window.location.reload();
+    } else {
+      console.log('[SIA-Orbit SW] controllerchange received without explicit user consent. Retaining current page state without reload.');
     }
   });
+
+  // Export internal setter for user consent
+  (window as any).__siaOrbitApplyUpdate = () => {
+    userConsentedReload = true;
+  };
 }
 
 /**
- * Trigger SKIP_WAITING to immediately activate the waiting Service Worker and reload
+ * Trigger SKIP_WAITING with explicit user consent to activate the waiting Service Worker and reload
  */
 export function applyUpdateAndReload() {
+  if (typeof window !== 'undefined' && (window as any).__siaOrbitApplyUpdate) {
+    (window as any).__siaOrbitApplyUpdate();
+  }
+
   if (newWorkerWaiting) {
     newWorkerWaiting.postMessage({ type: 'SKIP_WAITING' });
   } else if (registrationInstance?.waiting) {
     registrationInstance.waiting.postMessage({ type: 'SKIP_WAITING' });
   } else {
     window.location.reload();
+    return;
   }
+
+  // Fallback in case controllerchange does not fire within 1500ms
+  setTimeout(() => {
+    window.location.reload();
+  }, 1500);
 }
 
 /**

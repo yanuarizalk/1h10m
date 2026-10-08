@@ -40,13 +40,13 @@ export const UpdateNotificationToast: React.FC<UpdateNotificationToastProps> = (
           </div>
           <div>
             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-              <span>Update Available</span>
+              <span>Pembaruan Versi Tersedia</span>
               <span className="text-[10px] font-mono font-normal px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
-                SW Cached
+                Siap Dipasang
               </span>
             </h4>
             <p className="text-[11px] text-slate-300 line-clamp-1">
-              A new version of SIA-Orbit has been cached. Reload to activate.
+              Versi terbaru telah di-cache. Muat ulang sekarang untuk menerapkan atau lanjutkan aktivitas Anda.
             </p>
           </div>
         </div>
@@ -57,13 +57,13 @@ export const UpdateNotificationToast: React.FC<UpdateNotificationToastProps> = (
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-md transition-all active:scale-95"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reload Now</span>
+            <span>Muat Ulang</span>
           </button>
 
           <button
             onClick={onDismiss}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Dismiss notification"
+            title="Tutup (Nanti saja)"
           >
             <X className="w-4 h-4" />
           </button>

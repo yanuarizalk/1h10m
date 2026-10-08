@@ -26,6 +26,14 @@ export interface Course {
   lecturerTip?: string;
   status: CourseStatus;
   grade?: CourseGrade;
+  score?: number; // Numeric grade score (0–100)
+}
+
+export interface GradeThreshold {
+  grade: CourseGrade;
+  minScore: number;
+  point: number;
+  description?: string;
 }
 
 export interface CurriculumPreset {
@@ -53,6 +61,13 @@ export interface Assignment {
   type: 'individual' | 'group';
   notes?: string;
   createdAt: string;
+}
+
+export interface TaskNotificationConfig {
+  enabled: boolean;
+  reminderMinutes: number; // in minutes before due date, e.g. 15, 30, 60, 120
+  soundEnabled: boolean;
+  lastNotifiedTaskIds?: string[];
 }
 
 export interface GroupMemberTask {

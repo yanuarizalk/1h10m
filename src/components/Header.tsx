@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CurriculumPreset } from '../types';
+import type { CurriculumPreset, TaskNotificationConfig, GradeThreshold } from '../types';
 import { ConfigurationMenu } from './ConfigurationMenu';
 import { 
   Compass, 
@@ -10,7 +10,7 @@ import {
   Activity, 
   BookOpen, 
   CheckSquare, 
-  Sparkles,
+  Sparkles, 
   Download
 } from 'lucide-react';
 
@@ -30,6 +30,10 @@ interface HeaderProps {
   onOpenManageModal: (initialTab?: 'presets' | 'courses') => void;
   onImportPreset: (preset: CurriculumPreset) => void;
   onExportPreset: (preset: CurriculumPreset) => void;
+  notificationConfig: TaskNotificationConfig;
+  onUpdateNotificationConfig: (config: TaskNotificationConfig) => void;
+  gradeThresholds: GradeThreshold[];
+  onUpdateGradeThresholds: (thresholds: GradeThreshold[]) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -48,6 +52,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenManageModal,
   onImportPreset,
   onExportPreset,
+  notificationConfig,
+  onUpdateNotificationConfig,
+  gradeThresholds,
+  onUpdateGradeThresholds,
 }) => {
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
 
@@ -179,6 +187,10 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenManageModal={onOpenManageModal}
               onImportPreset={onImportPreset}
               onExportPreset={onExportPreset}
+              notificationConfig={notificationConfig}
+              onUpdateNotificationConfig={onUpdateNotificationConfig}
+              gradeThresholds={gradeThresholds}
+              onUpdateGradeThresholds={onUpdateGradeThresholds}
             />
 
             {/* Dark / Light Mode Switch */}

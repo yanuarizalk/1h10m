@@ -1,14 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import type { Course, CourseGrade, CourseStatus, CourseCategory } from '../types';
 import { GRADE_POINT_MAP } from '../data/curriculumData';
+import {
+  DEFAULT_GRADE_THRESHOLDS,
+  calculateGradeFromScore,
+  getDefaultScoreForGrade,
+  getGradeBadgeStyle,
+} from '../utils/gradeThresholdService';
+import type { GradeThreshold } from '../utils/gradeThresholdService';
 import confetti from 'canvas-confetti';
-import { 
-  CheckCircle2, 
-  CircleDot, 
-  Circle, 
-  AlertTriangle, 
-  GraduationCap, 
-  Search, 
+import {
+  CheckCircle2,
+  CircleDot,
+  Circle,
+  AlertTriangle,
+  GraduationCap,
+  Search,
   RotateCcw,
   Layers,
   ArrowRight,
@@ -18,10 +25,11 @@ import {
 
 interface CurriculumExplorerProps {
   courses: Course[];
-  onUpdateCourseStatus: (courseId: string, status: CourseStatus, grade?: CourseGrade) => void;
+  onUpdateCourseStatus: (courseId: string, status: CourseStatus, grade?: CourseGrade, score?: number) => void;
   onResetCurriculum: () => void;
   curriculumName?: string;
   targetSks?: number;
+  gradeThresholds?: GradeThreshold[];
 }
 
 const CATEGORY_COLORS: Record<CourseCategory, { bg: string; text: string; border: string }> = {
@@ -42,6 +50,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
   onResetCurriculum,
   curriculumName,
   targetSks = 144,
+  gradeThresholds = DEFAULT_GRADE_THRESHOLDS,
 }) => {
   const [selectedSemester, setSelectedSemester] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,7 +114,12 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
     courses.forEach(c => {
       if (c.status === 'completed') {
         passedSks += c.sks;
-        const gradePoint = c.grade ? GRADE_POINT_MAP[c.grade] ?? 4.0 : 4.0;
+        let gradePoint = 4.0;
+        if (c.score !== undefined) {
+          gradePoint = calculateGradeFromScore(c.score, gradeThresholds).point;
+        } else if (c.grade) {
+          gradePoint = GRADE_POINT_MAP[c.grade] ?? 4.0;
+        }
         totalGradePoints += gradePoint * c.sks;
         gradedSks += c.sks;
       } else if (c.status === 'planned') {
@@ -123,7 +137,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
       gpa,
       percentage,
     };
-  }, [courses, targetSks]);
+  }, [courses, targetSks, gradeThresholds]);
 
   // Trigger celebration confetti when 144 SKS is reached
   React.useEffect(() => {
@@ -145,7 +159,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
     return courses.filter(c => {
       const matchesSemester = selectedSemester === 'all' || c.semester === selectedSemester;
       const matchesCategory = selectedCategory === 'all' || c.category === selectedCategory;
-      const matchesSearch = 
+      const matchesSearch =
         c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.titleEn && c.titleEn.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -168,7 +182,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
     return grouped;
   }, [filteredCourses]);
 
-  // Handle status change with prerequisite validation
+  // Handle status change with prerequisite validation and dynamic threshold calculation
   const handleStatusChange = (course: Course, newStatus: CourseStatus) => {
     if (newStatus === 'completed' || newStatus === 'planned') {
       // Check if prerequisites are passed
@@ -182,12 +196,21 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
         // Still allow setting or confirming
       }
     }
-    onUpdateCourseStatus(course.id, newStatus, course.grade || 'A');
+
+    if (newStatus === 'completed') {
+      const currentScore = course.score !== undefined
+        ? (course.score > 4 ? Math.round((course.score / 25) * 100) / 100 : course.score)
+        : getDefaultScoreForGrade(course.grade || 'A', gradeThresholds);
+      const { grade } = calculateGradeFromScore(currentScore, gradeThresholds);
+      onUpdateCourseStatus(course.id, 'completed', grade, currentScore);
+    } else {
+      onUpdateCourseStatus(course.id, newStatus, undefined, undefined);
+    }
   };
 
   return (
     <div className="space-y-6">
-      
+
       {/* Prerequisite Alert Banner */}
       {prereqAlert && (
         <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3 animate-fade-in shadow-sm">
@@ -204,8 +227,8 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                 {prereqAlert.missing.map(code => {
                   const prereq = courseCodeMap.get(code);
                   return (
-                    <span 
-                      key={code} 
+                    <span
+                      key={code}
                       className="px-2 py-0.5 rounded text-xs font-mono font-medium bg-amber-500/20 border border-amber-500/30 text-amber-900 dark:text-amber-200"
                     >
                       {code} {prereq ? `(${prereq.title})` : ''} — Belum Lulus
@@ -218,7 +241,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setPrereqAlert(null)}
             className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-white px-2 py-1 rounded bg-amber-500/20"
           >
@@ -247,7 +270,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
 
       {/* Top Academic Stats & IPK Calculator Simulation Widget */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        
+
         {/* SKS Passed Card */}
         <div className="glass-card p-5 rounded-2xl relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -266,7 +289,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
           </div>
           {/* Progress Bar */}
           <div className="mt-3 w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-            <div 
+            <div
               className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${stats.percentage}%` }}
             />
@@ -325,7 +348,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
             </span>
             <Layers className="w-5 h-5 text-indigo-500" />
           </div>
-          
+
           <div className="text-xs text-slate-600 dark:text-slate-300">
             {activeCourse ? (
               <div>
@@ -368,16 +391,15 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
-        
+
         {/* Semester Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-none">
           <button
             onClick={() => setSelectedSemester('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-              selectedSemester === 'all'
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${selectedSemester === 'all'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
+              }`}
           >
             Semua Semester (1-8)
           </button>
@@ -385,11 +407,10 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
             <button
               key={sem}
               onClick={() => setSelectedSemester(sem)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                selectedSemester === sem
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${selectedSemester === sem
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Sem {sem}
             </button>
@@ -495,6 +516,22 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                           <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}>
                             {course.category}
                           </span>
+                          {/* If completed, show computed grade badge */}
+                          {course.status === 'completed' && (() => {
+                            const rawScore = course.score !== undefined
+                              ? (course.score > 4 ? Math.round((course.score / 25) * 100) / 100 : course.score)
+                              : getDefaultScoreForGrade(course.grade || 'A', gradeThresholds);
+                            const { grade: computedGrade } = calculateGradeFromScore(rawScore, gradeThresholds);
+                            const badgeStyle = getGradeBadgeStyle(computedGrade);
+                            return (
+                              <span
+                                title={`Nilai Desimal: ${rawScore.toFixed(2)} | Huruf: ${computedGrade}`}
+                                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+                              >
+                                {computedGrade} ({rawScore.toFixed(2)})
+                              </span>
+                            );
+                          })()}
                         </div>
                         <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                           {course.sks} SKS
@@ -530,11 +567,10 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                                 return (
                                   <span
                                     key={req}
-                                    className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
-                                      isReqPassed 
+                                    className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${isReqPassed
                                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                                         : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                    }`}
+                                      }`}
                                   >
                                     {req} {isReqPassed ? '✓' : '!'}
                                   </span>
@@ -548,7 +584,7 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                       </div>
 
                       {/* Status Selector & Grade Dropdown */}
-                      <div 
+                      <div
                         className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -557,11 +593,10 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                           <button
                             title="Tandai Sudah Lulus"
                             onClick={() => handleStatusChange(course, 'completed')}
-                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${
-                              course.status === 'completed'
+                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${course.status === 'completed'
                                 ? 'bg-emerald-500 text-white shadow-sm'
                                 : 'text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400'
-                            }`}
+                              }`}
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span className="text-[10px] hidden sm:inline">Lulus</span>
@@ -570,11 +605,10 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                           <button
                             title="Tandai Direncanakan (KRS)"
                             onClick={() => handleStatusChange(course, 'planned')}
-                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${
-                              course.status === 'planned'
+                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${course.status === 'planned'
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400'
-                            }`}
+                              }`}
                           >
                             <CircleDot className="w-3.5 h-3.5" />
                             <span className="text-[10px] hidden sm:inline">KRS</span>
@@ -583,38 +617,56 @@ export const CurriculumExplorer: React.FC<CurriculumExplorerProps> = ({
                           <button
                             title="Belum Diambil"
                             onClick={() => handleStatusChange(course, 'not_taken')}
-                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${
-                              course.status === 'not_taken'
+                            className={`p-1 rounded text-xs flex items-center gap-1 font-medium transition-colors ${course.status === 'not_taken'
                                 ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
                                 : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                            }`}
+                              }`}
                           >
                             <Circle className="w-3.5 h-3.5" />
                             <span className="text-[10px] hidden sm:inline">Belum</span>
                           </button>
                         </div>
 
-                        {/* Grade Dropdown (if completed) */}
-                        {course.status === 'completed' && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400">Nilai:</span>
-                            <select
-                              value={course.grade || 'A'}
-                              onChange={(e) => onUpdateCourseStatus(course.id, 'completed', e.target.value as CourseGrade)}
-                              className="text-[11px] font-bold font-mono bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded px-1.5 py-0.5 focus:outline-none"
-                            >
-                              <option value="A">A (4.0)</option>
-                              <option value="A-">A- (3.7)</option>
-                              <option value="B+">B+ (3.3)</option>
-                              <option value="B">B (3.0)</option>
-                              <option value="B-">B- (2.7)</option>
-                              <option value="C+">C+ (2.3)</option>
-                              <option value="C">C (2.0)</option>
-                              <option value="D">D (1.0)</option>
-                              <option value="E">E (0.0)</option>
-                            </select>
-                          </div>
-                        )}
+                        {/* Dynamic Numeric Score Input & Grade Alphabet Badge (if completed) */}
+                        {course.status === 'completed' && (() => {
+                          const rawScore = course.score !== undefined
+                            ? (course.score > 4 ? Math.round((course.score / 25) * 100) / 100 : course.score)
+                            : getDefaultScoreForGrade(course.grade || 'A', gradeThresholds);
+                          const { grade: computedGrade, point: computedPoint } = calculateGradeFromScore(rawScore, gradeThresholds);
+                          const badgeStyle = getGradeBadgeStyle(computedGrade);
+
+                          return (
+                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/60 py-1 px-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                              <span className="text-[10px] font-semibold text-slate-400">
+                                Grade:
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                max="4"
+                                step="0.01"
+                                placeholder="0.0 - 4.0"
+                                value={rawScore}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const val = raw === '' ? 0 : Math.max(0, Math.min(4.0, parseFloat(raw) || 0));
+                                  const res = calculateGradeFromScore(val, gradeThresholds);
+                                  onUpdateCourseStatus(course.id, 'completed', res.grade, val);
+                                }}
+                                className="w-16 text-center text-xs font-mono font-bold py-0.5 px-1 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+
+                              {/* Dynamically Computed Grade Alphabet Badge */}
+                              <span
+                                title={`Nilai Huruf: ${computedGrade} (Bobot ${computedPoint.toFixed(1)})`}
+                                className={`text-[11px] font-mono px-2 py-0.5 rounded-md border font-extrabold flex items-center gap-0.5 transition-all duration-200 ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border} ${badgeStyle.glow}`}
+                              >
+                                <span>{computedGrade}</span>
+                                <span className="text-[9px] opacity-75 font-normal">({computedPoint.toFixed(1)})</span>
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Dynamic Prerequisite Highlight Banner (if related) */}
