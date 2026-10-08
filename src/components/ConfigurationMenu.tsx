@@ -4,8 +4,6 @@ import { parseCurriculumJson } from '../utils/curriculumIO';
 import {
   getNotificationPermission,
   requestNotificationPermission,
-  sendTestNotification,
-  scheduleBackgroundTestNotification,
   clearNotifiedTaskHistory
 } from '../utils/taskNotificationService';
 import {
@@ -67,8 +65,6 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [permissionState, setPermissionState] = useState<NotificationPermission | 'unsupported'>('default');
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
-  const [isTestingNotification, setIsTestingNotification] = useState(false);
-  const [isTestingBackground, setIsTestingBackground] = useState(false);
   const [testScore, setTestScore] = useState<number>(3.85);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -178,56 +174,6 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
       ...notificationConfig,
       reminderMinutes: safeMinutes,
     });
-  };
-
-  const handleTestNotification = async () => {
-    if (permissionState !== 'granted') {
-      const res = await requestNotificationPermission();
-      setPermissionState(res);
-      if (res !== 'granted') {
-        alert('Harap berikan izin notifikasi terlebih dahulu untuk menguji notifikasi OS.');
-        return;
-      }
-    }
-
-    setIsTestingNotification(true);
-    try {
-      const sent = await sendTestNotification(notificationConfig.reminderMinutes);
-      if (sent) {
-        showToast('Notifikasi uji coba dikirim ke OS!');
-      } else {
-        alert('Gagal mengirim notifikasi. Pastikan notifikasi peramban tidak diblokir di Windows/OS.');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsTestingNotification(false);
-    }
-  };
-
-  const handleTestBackgroundCountdown = async () => {
-    if (permissionState !== 'granted') {
-      const res = await requestNotificationPermission();
-      setPermissionState(res);
-      if (res !== 'granted') {
-        alert('Harap berikan izin notifikasi terlebih dahulu untuk menguji notifikasi OS.');
-        return;
-      }
-    }
-
-    setIsTestingBackground(true);
-    try {
-      const ok = await scheduleBackgroundTestNotification(10);
-      if (ok) {
-        showToast('Timer 10d dimulai! Segera tutup tab ini untuk menguji notifikasi OS.');
-      } else {
-        alert('Gagal menjadwalkan uji latar belakang. Pastikan Service Worker telah aktif.');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setTimeout(() => setIsTestingBackground(false), 3000);
-    }
   };
 
   const handleResetHistory = () => {
@@ -601,29 +547,16 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
                   Pengingat dijadwalkan langsung di Service Worker &amp; IndexedDB, sehingga notifikasi OS tetap dapat muncul kendati tab peramban ditutup.
                 </p>
 
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleTestNotification}
-                      disabled={isTestingNotification}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all disabled:opacity-50"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>{isTestingNotification ? 'Mengirim...' : 'Kirim Uji'}</span>
-                    </button>
-
-                    <button
-                      onClick={handleResetHistory}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-                      title="Reset Riwayat Notifikasi Terkirim"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <p className="text-[9.5px] text-slate-400 dark:text-slate-500 italic text-center">
-                    Klik tombol di atas lalu segera tutup tab ini. Notifikasi OS akan muncul otomatis dalam 10 detik dari Service Worker.
-                  </p>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <span className="text-[10px] text-slate-400">Riwayat pengingat terkirim:</span>
+                  <button
+                    onClick={handleResetHistory}
+                    className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 py-0.5 px-2 rounded hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                    title="Reset Riwayat Notifikasi Terkirim"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Riwayat</span>
+                  </button>
                 </div>
               </div>
 
