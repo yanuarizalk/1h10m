@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Course, Assignment, GroupDeliverable, CourseGrade, CourseStatus, AssignmentStatus, CacheDiagnostics, CurriculumPreset } from './types';
+import type { 
+  Course, 
+  Assignment, 
+  GroupDeliverable, 
+  CourseGrade, 
+  CourseStatus, 
+  AssignmentStatus, 
+  CacheDiagnostics, 
+  CurriculumPreset,
+  TaskNotificationConfig
+} from './types';
 import { INITIAL_COURSES, INITIAL_ASSIGNMENTS, INITIAL_GROUP_DELIVERABLES, GRADE_POINT_MAP, DEFAULT_CURRICULUM_PRESETS } from './data/curriculumData';
 import { Header } from './components/Header';
 import { CurriculumExplorer } from './components/CurriculumExplorer';
@@ -9,6 +19,11 @@ import { SystemDiagnosticsModal } from './components/SystemDiagnosticsModal';
 import { CurriculumManageModal } from './components/CurriculumManageModal';
 import { ImportConflictModal } from './components/ImportConflictModal';
 import { downloadCurriculumJson } from './utils/curriculumIO';
+import { 
+  getTaskNotificationConfig, 
+  saveTaskNotificationConfig, 
+  checkDueTasksAndNotify 
+} from './utils/taskNotificationService';
 import { getCacheDiagnostics, applyUpdateAndReload } from './serviceWorkerRegistration';
 import { WifiOff, ShieldCheck } from 'lucide-react';
 
@@ -113,6 +128,35 @@ export const App: React.FC = () => {
     }
     return INITIAL_GROUP_DELIVERABLES;
   });
+
+  // Task Notification configuration state with LocalStorage persistence
+  const [notificationConfig, setNotificationConfig] = useState<TaskNotificationConfig>(() => {
+    return getTaskNotificationConfig();
+  });
+
+  const handleUpdateNotificationConfig = (newConfig: TaskNotificationConfig) => {
+    setNotificationConfig(newConfig);
+    saveTaskNotificationConfig(newConfig);
+  };
+
+  // Background Service: Automatically inspect due tasks and trigger OS notifications
+  useEffect(() => {
+    // Run initial inspection
+    checkDueTasksAndNotify(assignments, notificationConfig, () => {
+      setActiveTab('assignments');
+    });
+
+    // Run background interval check every 30 seconds
+    const intervalId = window.setInterval(() => {
+      checkDueTasksAndNotify(assignments, notificationConfig, () => {
+        setActiveTab('assignments');
+      });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [assignments, notificationConfig]);
 
   // Sync theme to <html> tag
   useEffect(() => {
@@ -500,6 +544,8 @@ export const App: React.FC = () => {
         }}
         onImportPreset={handleImportCurriculum}
         onExportPreset={handleExportCurriculum}
+        notificationConfig={notificationConfig}
+        onUpdateNotificationConfig={handleUpdateNotificationConfig}
       />
 
       {/* App Body Content */}

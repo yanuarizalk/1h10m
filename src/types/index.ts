@@ -55,6 +55,13 @@ export interface Assignment {
   createdAt: string;
 }
 
+export interface TaskNotificationConfig {
+  enabled: boolean;
+  reminderMinutes: number; // in minutes before due date, e.g. 15, 30, 60, 120
+  soundEnabled: boolean;
+  lastNotifiedTaskIds?: string[];
+}
+
 export interface GroupMemberTask {
   id: string;
   name: string;
