@@ -94,7 +94,6 @@ Deploy directly via Git or Cloudflare Wrangler CLI:
 ```
 Current Directory
 ├── public/
-│   ├── curriculum-si.json       # Static curriculum metadata bundle for pre-caching
 │   ├── pwa-192x192.svg          # High-resolution PWA SVG icon
 │   └── pwa-512x512.svg          # Maskable PWA SVG icon
 ├── src/
