@@ -5,6 +5,7 @@ import {
   getNotificationPermission, 
   requestNotificationPermission, 
   sendTestNotification, 
+  scheduleBackgroundTestNotification,
   clearNotifiedTaskHistory 
 } from '../utils/taskNotificationService';
 import { 
@@ -55,6 +56,7 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
   const [permissionState, setPermissionState] = useState<NotificationPermission | 'unsupported'>('default');
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [isTestingNotification, setIsTestingNotification] = useState(false);
+  const [isTestingBackground, setIsTestingBackground] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -187,6 +189,31 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
       console.error(err);
     } finally {
       setIsTestingNotification(false);
+    }
+  };
+
+  const handleTestBackgroundCountdown = async () => {
+    if (permissionState !== 'granted') {
+      const res = await requestNotificationPermission();
+      setPermissionState(res);
+      if (res !== 'granted') {
+        alert('Harap berikan izin notifikasi terlebih dahulu untuk menguji notifikasi OS.');
+        return;
+      }
+    }
+
+    setIsTestingBackground(true);
+    try {
+      const ok = await scheduleBackgroundTestNotification(10);
+      if (ok) {
+        showToast('Timer 10d dimulai! Segera tutup tab ini untuk menguji notifikasi OS.');
+      } else {
+        alert('Gagal menjadwalkan uji latar belakang. Pastikan Service Worker telah aktif.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTimeout(() => setIsTestingBackground(false), 3000);
     }
   };
 
@@ -545,32 +572,50 @@ export const ConfigurationMenu: React.FC<ConfigurationMenuProps> = ({
               {/* 3. Background Service Telemetry & Testing Actions */}
               <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                    <span>Background Service Aktif</span>
+                    <span>Service Worker Engine: Aktif</span>
                   </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Interval: 30 detik
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                    Tab Closed Ready
                   </span>
                 </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Pengingat dijadwalkan langsung di Service Worker &amp; IndexedDB, sehingga notifikasi OS tetap dapat muncul kendati tab peramban ditutup.
+                </p>
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleTestNotification}
+                      disabled={isTestingNotification}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>{isTestingNotification ? 'Mengirim...' : 'Kirim Uji Coba (Tab Terbuka)'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleResetHistory}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                      title="Reset Riwayat Notifikasi Terkirim"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
                   <button
-                    onClick={handleTestNotification}
-                    disabled={isTestingNotification}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all disabled:opacity-50"
+                    onClick={handleTestBackgroundCountdown}
+                    disabled={isTestingBackground}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-all disabled:opacity-50"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
-                    <span>{isTestingNotification ? 'Mengirim...' : 'Kirim Notifikasi Uji Coba'}</span>
+                    <Clock className="w-3.5 h-3.5 text-blue-200" />
+                    <span>{isTestingBackground ? 'Menjadwalkan...' : 'Uji Notifikasi Tab Tertutup (10 Detik)'}</span>
                   </button>
 
-                  <button
-                    onClick={handleResetHistory}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-                    title="Reset Riwayat Notifikasi Terkirim"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
+                  <p className="text-[9.5px] text-slate-400 dark:text-slate-500 italic text-center">
+                    Klik tombol di atas lalu segera tutup tab ini. Notifikasi OS akan muncul otomatis dalam 10 detik dari Service Worker.
+                  </p>
                 </div>
               </div>
 

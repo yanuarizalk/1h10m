@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'SIA-Orbit: UNSIA PJJ Curriculum Roadmap & Offline Matrix',
@@ -37,7 +37,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: false, // Managed manually via prompt and SKIP_WAITING
+        skipWaiting: true,
+        importScripts: ['/sw-task-reminder.js'],
         runtimeCaching: [
           {
             // Cache Google Fonts & Web Fonts (Cache-First)

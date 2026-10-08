@@ -22,7 +22,8 @@ import { downloadCurriculumJson } from './utils/curriculumIO';
 import { 
   getTaskNotificationConfig, 
   saveTaskNotificationConfig, 
-  checkDueTasksAndNotify 
+  checkDueTasksAndNotify,
+  syncTasksWithServiceWorkerSync 
 } from './utils/taskNotificationService';
 import { getCacheDiagnostics, applyUpdateAndReload } from './serviceWorkerRegistration';
 import { WifiOff, ShieldCheck } from 'lucide-react';
@@ -141,7 +142,7 @@ export const App: React.FC = () => {
 
   // Background Service: Automatically inspect due tasks and trigger OS notifications
   useEffect(() => {
-    // Run initial inspection
+    // Run initial inspection and sync to Service Worker
     checkDueTasksAndNotify(assignments, notificationConfig, () => {
       setActiveTab('assignments');
     });
@@ -153,8 +154,18 @@ export const App: React.FC = () => {
       });
     }, 30000);
 
+    // Sync to Service Worker when tab is about to be closed or hidden (synchronous postMessage)
+    const handleSyncOnClose = () => {
+      syncTasksWithServiceWorkerSync(assignments, notificationConfig);
+    };
+
+    window.addEventListener('beforeunload', handleSyncOnClose);
+    window.addEventListener('pagehide', handleSyncOnClose);
+
     return () => {
       window.clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleSyncOnClose);
+      window.removeEventListener('pagehide', handleSyncOnClose);
     };
   }, [assignments, notificationConfig]);
 
